@@ -1,0 +1,838 @@
+openapi: 3.0.3
+info:
+  title: TourShop Backend API
+  version: 1.0.0
+  description: |
+    API pour Tour Shop Logistique SARL.
+    Cette version de la documentation n'exige pas de token pour l'exploration via Swagger UI.
+servers:
+  - url: http://localhost:8000
+    description: Local dev
+components:
+  schemas:
+    # ===== SCHEMAS DE REQUÊTE =====
+    RegisterRequest:
+      type: object
+      required: [nom, prenoms, telephone, password, password_confirmation, type]
+      properties:
+        nom: { type: string, maxLength: 255 }
+        prenoms: { type: string, maxLength: 255 }
+        telephone: { type: string, description: "Format Côte d'Ivoire" }
+        email: { type: string, format: email, maxLength: 255 }
+        password: { type: string, minLength: 8 }
+        password_confirmation: { type: string, minLength: 8 }
+        type: { type: string, enum: [client, livreur, agence, backoffice] }
+        # Champs agence (requis si type=agence)
+        nom_agence: { type: string, maxLength: 255 }
+        adresse_agence: { type: string, maxLength: 255 }
+        ville_agence: { type: string, maxLength: 255 }
+        commune_agence: { type: string, maxLength: 255 }
+        latitude_agence: { type: number, minimum: -90, maximum: 90 }
+        longitude_agence: { type: number, minimum: -180, maximum: 180 }
+
+    LoginRequest:
+      type: object
+      required: [password, type]
+      properties:
+        telephone: { type: string, description: "Requis si email absent" }
+        email:
+          {
+            type: string,
+            format: email,
+            description: "Requis si telephone absent",
+          }
+        password: { type: string }
+        type:
+          { type: string, enum: [client, livreur, admin, backoffice, agence] }
+
+    AgenceSetupRequest:
+      type: object
+      required:
+        [nom_agence, telephone, adresse, ville, commune, latitude, longitude]
+      properties:
+        nom_agence: { type: string, maxLength: 255 }
+        telephone:
+          {
+            type: string,
+            maxLength: 20,
+            description: "Numéro de téléphone de l'agence",
+          }
+        description:
+          {
+            type: string,
+            maxLength: 1000,
+            description: "Description de l'agence (optionnel)",
+          }
+        adresse: { type: string, maxLength: 255 }
+        ville: { type: string, maxLength: 255 }
+        commune: { type: string, maxLength: 255 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        zone_couverture_km:
+          { type: number, minimum: 1, maximum: 100, default: 10 }
+        horaires:
+          type: array
+          items:
+            type: object
+            required: [jour, ouverture, fermeture]
+            properties:
+              jour:
+                {
+                  type: string,
+                  enum:
+                    [lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche],
+                }
+              ouverture:
+                { type: string, pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$" }
+              fermeture:
+                { type: string, pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$" }
+
+    AgenceUpdateRequest:
+      type: object
+      properties:
+        nom_agence: { type: string, maxLength: 255 }
+        telephone: { type: string, maxLength: 20 }
+        description: { type: string, maxLength: 1000 }
+        adresse: { type: string, maxLength: 255 }
+        ville: { type: string, maxLength: 255 }
+        commune: { type: string, maxLength: 255 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        zone_couverture_km: { type: number, minimum: 0 }
+        horaires:
+          type: array
+          items:
+            type: object
+            properties:
+              jour: { type: string }
+              ouverture: { type: string }
+              fermeture: { type: string }
+
+    ColisCreateRequest:
+      type: object
+      required:
+        [
+          adresse_destinataire,
+          description,
+          poids,
+          adresse_enlevement,
+          lat_enlevement,
+          lng_enlevement,
+          lat_livraison,
+          lng_livraison,
+        ]
+      properties:
+        destinataire_id:
+          {
+            type: string,
+            format: uuid,
+            description: "UUID utilisateur existant",
+          }
+        destinataire_nom: { type: string, maxLength: 255 }
+        destinataire_telephone: { type: string }
+        adresse_destinataire: { type: string }
+        description: { type: string, maxLength: 500 }
+        poids: { type: number, minimum: 0.1, maximum: 50 }
+        adresse_enlevement: { type: string }
+        lat_enlevement: { type: number }
+        lng_enlevement: { type: number }
+        lat_livraison: { type: number }
+        lng_livraison: { type: number }
+        agence_id: { type: string, format: uuid }
+        enlevement_domicile: { type: boolean, default: false }
+        livraison_express: { type: boolean, default: false }
+        paiement_livraison: { type: boolean, default: false }
+        instructions_enlevement: { type: string }
+        instructions_livraison: { type: string }
+        photo_colis:
+          { type: string, format: binary, description: "Image max 2MB" }
+
+    TarifCreateRequest:
+      type: object
+      required: [prix_base, prix_par_km, prix_par_kg]
+      properties:
+        nom: { type: string, maxLength: 255 }
+        type_colis: { type: string, maxLength: 255 }
+        prix_base: { type: number, minimum: 0 }
+        prix_par_km: { type: number, minimum: 0 }
+        prix_par_kg: { type: number, minimum: 0 }
+        poids_max_kg: { type: number, minimum: 0 }
+        distance_min_km: { type: integer, minimum: 0 }
+        distance_max_km: { type: integer, minimum: 0 }
+        supplement_domicile: { type: number, minimum: 0, default: 0 }
+        supplement_express: { type: number, minimum: 0, default: 0 }
+        actif: { type: boolean, default: true }
+
+    # ===== SCHEMAS DE RÉPONSE =====
+    ApiResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+
+    AuthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            user: { $ref: "#/components/schemas/User" }
+            token: { type: string, description: "Token Sanctum" }
+            requires_agence_setup:
+              {
+                type: boolean,
+                description: "Indique si l'utilisateur doit configurer son agence",
+              }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nom: { type: string }
+        prenoms: { type: string }
+        telephone: { type: string }
+        email: { type: string, format: email }
+        type: { type: string, enum: [client, livreur, agence, backoffice] }
+        actif: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Agence:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        nom_agence: { type: string }
+        telephone: { type: string }
+        description: { type: string }
+        adresse: { type: string }
+        ville: { type: string }
+        commune: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        horaires: { type: array }
+        zone_couverture_km: { type: number }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Colis:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code_suivi: { type: string }
+        expediteur_id: { type: string, format: uuid }
+        destinataire_id: { type: string, format: uuid }
+        destinataire_nom: { type: string }
+        destinataire_telephone: { type: string }
+        adresse_destinataire: { type: string }
+        description: { type: string }
+        poids: { type: number }
+        prix_total: { type: number }
+        commission_livreur: { type: number }
+        commission_agence: { type: number }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                en_attente,
+                valide,
+                annule,
+                en_enlevement,
+                recupere,
+                en_transit,
+                en_agence,
+                en_livraison,
+                livre,
+              ],
+          }
+        agence_id: { type: string, format: uuid }
+        livreur_id: { type: string, format: uuid }
+        photo_colis: { type: string }
+        photo_livraison: { type: string }
+        signature_destinataire: { type: string }
+        date_livraison: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    Tarif:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        agence_id: { type: string, format: uuid }
+        nom: { type: string }
+        type_colis: { type: string }
+        prix_base: { type: number }
+        prix_par_km: { type: number }
+        prix_par_kg: { type: number }
+        poids_max_kg: { type: number }
+        distance_min_km: { type: integer }
+        distance_max_km: { type: integer }
+        supplement_domicile: { type: number }
+        supplement_express: { type: number }
+        actif: { type: boolean }
+
+paths:
+  # ===== AUTHENTIFICATION =====
+  /api/register:
+    post:
+      tags: [Auth]
+      summary: Inscription d'un utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+            example:
+              nom: "Kouassi"
+              prenoms: "Jean"
+              telephone: "+225 07 12 34 56 78"
+              email: "jean@example.com"
+              password: "motdepasse123"
+              password_confirmation: "motdepasse123"
+              type: "client"
+      responses:
+        "201":
+          description: Inscription réussie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "422":
+          description: Erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/login:
+    post:
+      tags: [Auth]
+      summary: Connexion utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+            example:
+              telephone: "+225 07 12 34 56 78"
+              password: "motdepasse123"
+              type: "client"
+      responses:
+        "200":
+          description: Connexion réussie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "422":
+          description: Identifiants incorrects
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/logout:
+    post:
+      tags: [Auth]
+      summary: Déconnexion
+      responses:
+        "200":
+          description: Déconnexion réussie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "401":
+          description: Non authentifié
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/user:
+    get:
+      tags: [Auth]
+      summary: Profil utilisateur authentifié
+      responses:
+        "200":
+          description: Profil récupéré
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      user: { $ref: "#/components/schemas/User" }
+        "401":
+          description: Non authentifié
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  # ===== AGENCE SETUP =====
+  /api/agence/setup:
+    post:
+      tags: [Agence]
+      summary: Configuration initiale de l'agence
+      description: Permet à un utilisateur de type 'agence' de configurer les informations de son agence après inscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgenceSetupRequest" }
+            example:
+              nom_agence: "Agence Express Abidjan"
+              telephone: "+225 07 12 34 56 78"
+              description: "Agence de livraison rapide spécialisée dans le transport de colis en Côte d'Ivoire. Service professionnel et fiable."
+              adresse: "Rue des Jardins, Cocody"
+              ville: "Abidjan"
+              commune: "Cocody"
+              latitude: 5.3364
+              longitude: -4.0267
+              zone_couverture_km: 15
+              horaires:
+                - jour: "lundi"
+                  ouverture: "08:00"
+                  fermeture: "18:00"
+                - jour: "mardi"
+                  ouverture: "08:00"
+                  fermeture: "18:00"
+      responses:
+        "201":
+          description: Agence configurée avec succès
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      agence: { $ref: "#/components/schemas/Agence" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Agence déjà configurée ou erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/status:
+    get:
+      tags: [Agence]
+      summary: Vérifier le statut de configuration de l'agence
+      description: Vérifie si l'utilisateur authentifié a déjà configuré son agence
+      responses:
+        "200":
+          description: Statut récupéré
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      has_agence: { type: boolean }
+                      agence: { $ref: "#/components/schemas/Agence" }
+        "403":
+          description: Utilisateur non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  # ===== AGENCE GESTION =====
+  /api/agence/show:
+    get:
+      tags: [Agence]
+      summary: Informations de l'agence
+      responses:
+        "200":
+          description: Informations de l'agence
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      agence: { $ref: "#/components/schemas/Agence" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "404":
+          description: Agence non trouvée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/update:
+    put:
+      tags: [Agence]
+      summary: Mettre à jour les informations de l'agence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgenceUpdateRequest" }
+      responses:
+        "200":
+          description: Agence mise à jour
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      agence: { $ref: "#/components/schemas/Agence" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "404":
+          description: Agence non trouvée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions:
+    get:
+      tags: [Agence]
+      summary: Liste des expéditions de l'agence
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Liste paginée des colis
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        {
+                          type: array,
+                          items: { $ref: "#/components/schemas/Colis" },
+                        }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "404":
+          description: Agence non trouvée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions/{colis}/accepter:
+    post:
+      tags: [Agence]
+      summary: Accepter une demande d'expédition
+      parameters:
+        - in: path
+          name: colis
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Demande acceptée
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      colis: { $ref: "#/components/schemas/Colis" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "404":
+          description: Agence non trouvée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Colis ne peut être accepté
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions/{colis}/refuser:
+    post:
+      tags: [Agence]
+      summary: Refuser une demande d'expédition
+      parameters:
+        - in: path
+          name: colis
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motif]
+              properties:
+                motif: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Demande refusée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Erreur de validation ou colis ne peut être refusé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions/{colis}/assign-livreur:
+    post:
+      tags: [Agence]
+      summary: Assigner un livreur à un colis
+      parameters:
+        - in: path
+          name: colis
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [livreur_id]
+              properties:
+                livreur_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Livreur assigné
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions/{colis}/statut:
+    post:
+      tags: [Agence]
+      summary: Changer le statut d'un colis
+      parameters:
+        - in: path
+          name: colis
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  {
+                    type: string,
+                    enum:
+                      [
+                        en_enlevement,
+                        recupere,
+                        en_transit,
+                        en_agence,
+                        en_livraison,
+                        livre,
+                      ],
+                  }
+      responses:
+        "200":
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions/{colis}/preuves:
+    post:
+      tags: [Agence]
+      summary: Ajouter des preuves de livraison
+      parameters:
+        - in: path
+          name: colis
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo_livraison:
+                  { type: string, format: binary, description: "Image max 5MB" }
+                signature_destinataire:
+                  { type: string, format: binary, description: "Image max 5MB" }
+      responses:
+        "200":
+          description: Preuves ajoutées
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+
+  /api/agence/expeditions/{colis}/verifier:
+    post:
+      tags: [Agence]
+      summary: Vérifier un colis (poids, prix)
+      parameters:
+        - in: path
+          name: colis
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                poids: { type: number, minimum: 0.01 }
+                prix_total: { type: number, minimum: 0 }
+      responses:
+        "200":
+          description: Colis vérifié
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "403":
+          description: Accès non autorisé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "422":
+          description: Erreur de validation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
+        "500":
+          description: Erreur serveur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiResponse" }
