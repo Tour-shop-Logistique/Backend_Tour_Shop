@@ -44,23 +44,6 @@ RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
 
-# Creating Apache configuration file
-RUN echo '<VirtualHost *:80>\n\
-    ServerName localhost\n\
-    DocumentRoot /var/www/html/public\n\
-    <Directory /var/www/html/public>\n\
-        Options -Indexes +FollowSymLinks\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-    ErrorLog /var/log/apache2/error.log\n\
-    CustomLog /var/log/apache2/access.log combined\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
-
-# Enabling the site and rewrite module
-RUN a2ensite 000-default.conf
-RUN a2enmod rewrite
-
 # Exposing port for Render
 EXPOSE 8080
 
