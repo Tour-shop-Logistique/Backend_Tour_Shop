@@ -1,6 +1,6 @@
 FROM php:8.1-apache
 
-# Installing system dependencies (y compris pour GD, PostgreSQL, etc.)
+# Installing system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -44,8 +44,8 @@ RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
 
-# Configuring Apache document root to point to /var/www/html/public
-RUN echo "<VirtualHost *:80>\n\
+# Creating Apache configuration file
+RUN echo '<VirtualHost *:80>\n\
     ServerName localhost\n\
     DocumentRoot /var/www/html/public\n\
     <Directory /var/www/html/public>\n\
@@ -53,11 +53,12 @@ RUN echo "<VirtualHost *:80>\n\
         AllowOverride All\n\
         Require all granted\n\
     </Directory>\n\
-    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
-    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
-</VirtualHost>" > /etc/apache2/sites-available/000-default.conf
+    ErrorLog /var/log/apache2/error.log\n\
+    CustomLog /var/log/apache2/access.log combined\n\
+</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
-# Enabling Apache rewrite module
+# Enabling the site and rewrite module
+RUN a2ensite 000-default.conf
 RUN a2enmod rewrite
 
 # Exposing port for Render
