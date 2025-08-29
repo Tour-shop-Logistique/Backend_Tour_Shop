@@ -1,6 +1,6 @@
 FROM php:8.1-apache
 
-# Installing system dependencies
+# Installing system dependencies (y compris pour GD, PostgreSQL, etc.)
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -11,9 +11,10 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
+    libpq-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Installing PHP extensions (ajout de pdo_pgsql pour PostgreSQL)
+# Installing PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
