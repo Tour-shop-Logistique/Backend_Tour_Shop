@@ -1,27 +1,48 @@
 FROM php:8.1-apache
 
-# Installing system dependencies
+# Installing system dependencies (y compris pour Composer et Laravel)
 RUN apt-get update && apt-get install -y \
-    libzip-dev \
+    curl \
+    git \
     unzip \
-    && docker-php-ext-install pdo_mysql zip
+    libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Installing PHP extensions (pour Laravel, incluant pdo_mysql, zip, gd, etc.)
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    pdo_mysql \
+    zip \
+    gd \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath
+
+# Installing Composer via le script officiel
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Copying project files
 COPY . /var/www/html
 
-# Installing Composer dependencies
-RUN apt-get install -y composer
-RUN composer install --no-dev --optimize-autoloader
+# Installing Composer dependencies (dans /var/www/html)
+WORKDIR /var/www/html
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Setting permissions
+# Setting permissions for Laravel (storage et cache)
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Optimizing Laravel configuration
-RUN php artisan config:cache
-RUN  php artisan route:cache
-RUN php artisan view:cache
+# Optimizing Laravel configuration (optionnel, mais recommandé pour production)
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 
-# Exposing port
+# Exposing port for Render (8080)
 EXPOSE 8080
 
 # Starting Apache
