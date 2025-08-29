@@ -1,6 +1,6 @@
 FROM php:8.1-apache
 
-# Installing system dependencies (y compris pour Composer et Laravel)
+# Installing system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -13,9 +13,10 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Installing PHP extensions (pour Laravel)
+# Installing PHP extensions (ajout de pdo_pgsql pour PostgreSQL)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
+    pdo_pgsql \
     pdo_mysql \
     zip \
     gd \
@@ -55,7 +56,7 @@ RUN echo "<VirtualHost *:80>\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>" > /etc/apache2/sites-available/000-default.conf
 
-# Enabling Apache rewrite module (pour Laravel routing)
+# Enabling Apache rewrite module
 RUN a2enmod rewrite
 
 # Exposing port for Render
